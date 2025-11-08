@@ -41,7 +41,7 @@ const Landing = () => {
             <h1 className="text-5xl lg:text-7xl font-bold tracking-tight">
               <span className="text-foreground">Illuminate Your</span>
               <br />
-              <span className="text-transparent bg-clip-text gradient-violet">Finances</span>
+              <span className=" bg-clip-text">Finances</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Lucent brings clarity to your financial life with AI-powered insights,
