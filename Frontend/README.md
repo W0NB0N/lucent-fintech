@@ -1,73 +1,219 @@
-# Welcome to your Lovable project
+🌌 Lucent — Illuminate Your Finances
 
-## Project info
+Lucent is a next-generation, AI-powered financial management platform that centralizes your entire financial life — banking, investments, crypto, budgeting, and group expenses — all in one place.
 
-**URL**: https://lovable.dev/projects/f5ade477-3819-4560-95dc-9ea2e6e13191
+“Illuminate your finances. Empower your freedom.”
 
-## How can I edit this code?
+🚀 Overview
 
-There are several ways of editing your application.
+Most people want to achieve financial freedom by 30, but have no idea where their money goes.
+They juggle between 6+ apps — one for banking, one for stocks, one for crypto, another for expenses — and still lack a single, unified picture of their finances.
 
-**Use Lovable**
+Lucent fixes that.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/f5ade477-3819-4560-95dc-9ea2e6e13191) and start prompting.
+Lucent is your personal financial command center — a dashboard that brings together all your money, insights, and goals in one clean, beautiful, intelligent place.
 
-Changes made via Lovable will be committed automatically to this repo.
+✨ Key Features
+💰 Unified Financial Dashboard
 
-**Use your preferred IDE**
+View your entire financial life — bank balance, investments, crypto, real estate, and savings — all in one place.
+Each section is represented through customizable widgets that you can add, remove, or rearrange to your liking.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+📊 AI-Powered Financial Advisor
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+An integrated LLM-based assistant that gives you personalized insights:
 
-Follow these steps:
+How you’re spending, saving, and investing
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Where to optimize your portfolio
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+How much to invest monthly to hit your FIRE number (Financial Independence, Retire Early)
 
-# Step 3: Install the necessary dependencies.
-npm i
+🔥 FIRE Tracker
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+Lucent automatically calculates your FIRE Number — the investment target required to retire early and live off returns — and tracks your progress toward it.
 
-**Edit a file directly in GitHub**
+💸 Lucent Circles
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Split group expenses effortlessly.
 
-**Use GitHub Codespaces**
+Create circles for roommates, trips, or parties
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Upload or scan bills using OCR (even from WhatsApp images!)
 
-## What technologies are used for this project?
+The AI detects who ordered what — non-veg, drinks, etc. — and splits bills fairly
 
-This project is built with:
+Initially, members get notifications
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Later, UPI integration enables direct payments
 
-## How can I deploy this project?
+📈 Trends
 
-Simply open [Lovable](https://lovable.dev/projects/f5ade477-3819-4560-95dc-9ea2e6e13191) and click on Share -> Publish.
+Real-time updates from:
 
-## Can I connect a custom domain to my Lovable project?
+Stock markets (via Twelve Data or Finnhub APIs)
 
-Yes, you can!
+Crypto (via CoinGecko API)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Personalized market insights
+All visualized beautifully in charts and graphs.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+🧩 Widget Customization
+
+Every user can customize their dashboard:
+
+Add/remove widgets like Net Worth, Budget, Investments, Crypto Tracker, or Daily Financial Health
+
+Click any widget to navigate to its dedicated page for detailed analytics
+
+🧠 Daily Financial Health Widget
+
+Shows how you’re performing financially today — income, expenses, savings rate — summarized as a daily financial wellness percentage.
+
+🧱 Project Architecture
+📂 Folder Structure
+src/
+ ├── components/
+ │    ├── Layout.tsx
+ │    ├── Sidebar.tsx
+ │    ├── TopNav.tsx
+ │    └── widgets/
+ │         ├── NetWorthWidget.tsx
+ │         ├── TransactionsWidget.tsx
+ │         ├── BudgetWidget.tsx
+ │         ├── SavingsGoalsWidget.tsx
+ │         ├── AIInsightsWidget.tsx
+ │         ├── InvestmentsWidget.tsx     ← NEW
+ │         └── DailyHealthWidget.tsx     ← NEW
+ ├── pages/
+ │    ├── Dashboard.tsx
+ │    ├── Analytics.tsx
+ │    ├── Circles.tsx
+ │    ├── Settings.tsx
+ │    └── Trends.tsx                     ← NEW
+ ├── hooks/
+ │    ├── use-toast.ts
+ │    ├── use-mobile.tsx
+ │    └── use-widgets.ts                 ← NEW (manages user widget preferences)
+ ├── lib/
+ │    ├── utils.ts
+ │    └── api/
+ │         ├── investments.ts            ← NEW
+ │         ├── crypto.ts                 ← NEW
+ │         └── stocks.ts                 ← NEW
+
+⚙️ Tech Stack
+💻 Frontend
+
+React 18 + TypeScript (with Vite)
+
+Tailwind CSS for styling
+
+Shadcn/UI for consistent, accessible UI components
+
+Lucide React for icons
+
+Recharts for analytics & financial visualizations
+
+Framer Motion for smooth animations
+
+React Query for API state management
+
+🧠 AI Layer
+
+OpenAI / Gemini API for LLM-powered financial insights
+
+LangChain for context-aware financial prompt chaining
+
+OCR via Tesseract.js for reading bills and receipts
+
+🧾 APIs & Data
+
+CoinGecko API → Real-time crypto prices
+
+Twelve Data / Finnhub → Stock market trends
+
+Kite Connect (Zerodha) → Optional brokerage integration
+
+Razorpay / Paytm UPI SDK → For future in-app settlements
+
+🏗 Backend
+
+Node.js + Express.js (TypeScript) — REST API layer
+
+Prisma ORM + PostgreSQL — for users, transactions, circles, and widget configs
+
+JWT Authentication (via Clerk or NextAuth)
+
+Cloudinary / Firebase Storage for image uploads (bills, receipts)
+
+☁️ Infrastructure
+
+Vercel — hosting frontend + edge APIs
+
+Railway / Render / Supabase — backend + database
+
+GitHub Actions — CI/CD pipeline
+
+Sentry — error monitoring
+
+🔐 Security
+
+AES-256 encrypted financial data
+
+Role-based access control (RBAC)
+
+HTTPS enforced with Cloudflare
+
+Encrypted API keys (Vault/Env vars)
+
+GDPR and RBI data compliance-ready
+
+💾 Setup Guide
+1️⃣ Clone the Repo
+git clone https://github.com/w0nb0n/lucent-fintech.git
+cd lucent-fintech
+
+2️⃣ Install Dependencies
+bun install   # or npm install / yarn install
+
+3️⃣ Environment Variables
+
+Create .env in the project root:
+
+VITE_API_BASE_URL=http://localhost:5000
+VITE_OPENAI_KEY=your_openai_key_here
+VITE_COIN_GECKO_API=https://api.coingecko.com/api/v3
+VITE_TWELVE_DATA_API_KEY=your_twelve_data_key
+
+4️⃣ Run the App
+bun run dev
+
+5️⃣ Optional: Run Backend
+cd backend
+bun run start
+
+🧮 API Endpoints (Backend Examples)
+Endpoint	Method	Description
+/api/investments	GET	Fetch user investments across sources
+/api/crypto	GET	Fetch crypto portfolio and live prices
+/api/stocks	GET	Fetch stock holdings and market trends
+/api/circles	POST	Create or update group expenses
+/api/fire-number	GET	Calculate user's FIRE number
+/api/advice	POST	Generate AI-driven financial advice
+🪄 Future Enhancements
+
+🔗 Live UPI payment integration
+
+🧾 Full OCR + WhatsApp Bill Parser
+
+📱 Mobile App (React Native)
+
+🧮 Predictive AI: “How much will I save next month?”
+
+💬 Financial Chatbot: “Hey Lucent, how’s my portfolio today?”
+
+💬 Vision
+
+To make “financial freedom by 30” not a dream — but a default reality.
+Lucent empowers young professionals to understand, track, and optimize their money — without juggling multiple apps, spreadsheets, or stress.
