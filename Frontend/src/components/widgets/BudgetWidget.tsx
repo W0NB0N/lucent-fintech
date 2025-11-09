@@ -54,7 +54,7 @@ export const BudgetWidget = () => {
       <div className="mb-4">
         <div className="flex items-baseline justify-between mb-2">
           <span className="text-sm text-muted-foreground">
-            ${totalSpent.toLocaleString()} of ${totalBudget.toLocaleString()}
+            ₹${totalSpent.toLocaleString()} of ₹${totalBudget.toLocaleString()}
           </span>
           <span className={`text-sm font-medium ${percentage > 80 ? "text-destructive" : "text-success"}`}>
             {Math.round(percentage)}%
@@ -71,7 +71,7 @@ export const BudgetWidget = () => {
         {budgetCategories.map((category) => (
           <div key={category.name} className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{category.name}</span>
-            <span className="text-foreground font-medium">${category.spent}</span>
+            <span className="text-foreground font-medium">₹{category.spent}</span>
           </div>
         ))}
       </div>

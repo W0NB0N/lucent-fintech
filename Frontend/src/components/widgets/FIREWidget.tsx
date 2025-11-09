@@ -54,10 +54,10 @@ export default function FIREWidget() {
     const token = getAuthToken();
     const query = `Given a user with ₹${Math.round(netWorth).toLocaleString()} net worth, ₹${Math.round(
       monthlyExpenses
-    ).toLocaleString()} monthly expenses, and a ${savingsRate}% savings rate, estimate how many years it would take to reach financial independence (FIRE number = annual expenses × 25). Suggest actionable financial strategies to reach FIRE faster.`;
+    ).toLocaleString()} monthly expenses, and a ${savingsRate}% savings rate, estimate how many years it would take to reach financial independence (FIRE number = annual expenses × 25). Suggest actionable financial strategies to reach FIRE faster.keep it under 80 words`;
 
     try {
-      const res = await fetch("/ai-insights", {
+      const res = await fetch("http://localhost:5001/ai-insights", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

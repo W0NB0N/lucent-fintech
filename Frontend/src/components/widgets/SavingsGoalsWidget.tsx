@@ -47,7 +47,7 @@ export const SavingsGoalsWidget = () => {
                     indicatorClassName={goal.color}
                   />
                   <div className="text-xs text-muted-foreground">
-                    ${goal.current.toLocaleString()} of ${goal.target.toLocaleString()}
+                    ₹{goal.current.toLocaleString()} of ₹{goal.target.toLocaleString()}
                   </div>
                 </div>
               </DialogTrigger>
@@ -59,10 +59,10 @@ export const SavingsGoalsWidget = () => {
                   <div>
                     <p className="text-sm text-muted-foreground mb-2">Current Progress</p>
                     <p className="text-3xl font-bold text-primary">
-                      ${selectedGoal.current.toLocaleString()}
+                      ₹{selectedGoal.current.toLocaleString()}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      of ${selectedGoal.target.toLocaleString()} goal
+                      of ₹{selectedGoal.target.toLocaleString()} goal
                     </p>
                   </div>
                   <Progress
@@ -73,7 +73,7 @@ export const SavingsGoalsWidget = () => {
                   <div className="bg-muted/50 p-4 rounded-lg">
                     <p className="text-sm text-muted-foreground mb-1">Remaining</p>
                     <p className="text-xl font-semibold text-foreground">
-                      ${(selectedGoal.target - selectedGoal.current).toLocaleString()}
+                      ₹{(selectedGoal.target - selectedGoal.current).toLocaleString()}
                     </p>
                   </div>
                 </div>

@@ -2,9 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sparkles, TrendingUp, Users, Shield, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 const Landing = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   const features = [
     {
@@ -51,14 +53,20 @@ const Landing = () => {
               <Button
                 size="lg"
                 className="gap-2 glow-violet"
-                onClick={() => navigate("/onboarding")}
+                onClick={() => navigate(isAuthenticated ? "/dashboard" : "/auth")}
               >
-                Start Dashboard
+                {isAuthenticated ? "Go to Dashboard" : "Get Started"}
                 <ArrowRight className="w-4 h-4" />
               </Button>
-              <Button size="lg" variant="outline">
-                Watch Demo
-              </Button>
+              {!isAuthenticated && (
+                <Button 
+                  size="lg" 
+                  variant="outline"
+                  onClick={() => navigate("/auth")}
+                >
+                  Sign In
+                </Button>
+              )}
             </div>
           </div>
         </div>

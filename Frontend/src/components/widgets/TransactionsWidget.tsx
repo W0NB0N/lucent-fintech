@@ -57,7 +57,7 @@ export const TransactionsWidget = () => {
                         transaction.type === "credit" ? "text-success" : "text-foreground"
                       }`}
                     >
-                      {transaction.amount > 0 ? "+" : ""}${Math.abs(transaction.amount).toFixed(2)}
+                      {transaction.amount > 0 ? "+" : ""}₹{Math.abs(transaction.amount).toFixed(2)}
                     </span>
                   </div>
                 ))}
@@ -84,7 +84,7 @@ export const TransactionsWidget = () => {
                 transaction.type === "credit" ? "text-success" : "text-foreground"
               }`}
             >
-              {transaction.amount > 0 ? "+" : ""}${Math.abs(transaction.amount).toFixed(2)}
+              {transaction.amount > 0 ? "+" : ""}₹{Math.abs(transaction.amount).toFixed(2)}
             </span>
           </div>
         ))}

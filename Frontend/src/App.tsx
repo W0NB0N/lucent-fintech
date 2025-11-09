@@ -18,6 +18,9 @@ import Widgets from "./pages/Widgets"; // ✅ Widget Manager
 
 // Context
 import { WidgetProvider } from "@/context/WidgetContext"; // ✅ Global Context
+import { AuthProvider } from "@/context/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import Auth from "@/pages/Auth";
 
 // Create query client for Tanstack React Query
 const queryClient = new QueryClient();
@@ -26,31 +29,36 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WidgetProvider> {/* ✅ Wraps everything to provide global widget state */}
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/onboarding" element={<Onboarding />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/circles" element={<Circles />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/plans" element={<Plans />} />
-              <Route path="/news" element={<News />} />
-              <Route path="/widgets" element={<Widgets />} /> {/* ✅ Widget Manager route */}
-              
-              {/* Redirects for unused paths */}
-              <Route path="/inbox" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/reports" element={<Navigate to="/analytics" replace />} />
-              <Route path="/trends" element={<Navigate to="/analytics" replace />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+        <BrowserRouter>
+          <AuthProvider>
+            <WidgetProvider>
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/auth" element={<Auth />} />
+                
+                {/* Protected Routes */}
+                <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/circles" element={<ProtectedRoute><Circles /></ProtectedRoute>} />
+                <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                <Route path="/plans" element={<ProtectedRoute><Plans /></ProtectedRoute>} />
+                <Route path="/news" element={<ProtectedRoute><News /></ProtectedRoute>} />
+                <Route path="/widgets" element={<ProtectedRoute><Widgets /></ProtectedRoute>} />
+                
+                {/* Redirects for unused paths */}
+                <Route path="/inbox" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/reports" element={<Navigate to="/analytics" replace />} />
+                <Route path="/trends" element={<Navigate to="/analytics" replace />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
 
-          {/* ✅ Keep global toasters *outside* router for consistent access */}
-          <Toaster />
-          <Sonner />
-        </WidgetProvider>
+              {/* ✅ Keep global toasters *outside* router for consistent access */}
+              <Toaster />
+              <Sonner />
+            </WidgetProvider>
+          </AuthProvider>
+        </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
   );

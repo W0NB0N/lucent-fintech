@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TrendingUp, DollarSign, PiggyBank, Sparkles } from "lucide-react";
+import { TrendingUp, IndianRupee, PiggyBank, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -18,6 +18,16 @@ const Analytics = () => {
   const [recommendation, setRecommendation] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Trends specific state
+  const [symbols, setSymbols] = useState<string>("AAPL,MSFT");
+  const [stocksLoading, setStocksLoading] = useState(false);
+  const [stocksError, setStocksError] = useState<string | null>(null);
+  const [stockData, setStockData] = useState<any | null>(null);
+
+  const [cryptoLoading, setCryptoLoading] = useState(false);
+  const [cryptoError, setCryptoError] = useState<string | null>(null);
+  const [cryptoData, setCryptoData] = useState<any | null>(null);
 
   const handleFetchInsight = async () => {
     setLoading(true);
@@ -51,6 +61,48 @@ const Analytics = () => {
     }
   };
 
+  // Fetch stock trends from backend
+  const handleFetchStocks = async () => {
+    setStocksLoading(true);
+    setStocksError(null);
+    setStockData(null);
+    try {
+      const resp = await fetch(
+        `http://localhost:5001/trends/stocks?symbols=${encodeURIComponent(symbols)}`
+      );
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body?.error || `Failed to fetch stocks: ${resp.status}`);
+      }
+      const data = await resp.json();
+      setStockData(data);
+    } catch (err: any) {
+      setStocksError(err.message || "Error fetching stock trends");
+    } finally {
+      setStocksLoading(false);
+    }
+  };
+
+  // Fetch crypto rates from backend
+  const handleFetchCrypto = async () => {
+    setCryptoLoading(true);
+    setCryptoError(null);
+    setCryptoData(null);
+    try {
+      const resp = await fetch(`http://localhost:5001/trends/crypto`);
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body?.error || `Failed to fetch crypto: ${resp.status}`);
+      }
+      const data = await resp.json();
+      setCryptoData(data);
+    } catch (err: any) {
+      setCryptoError(err.message || "Error fetching crypto rates");
+    } finally {
+      setCryptoLoading(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="mb-6 flex items-center justify-between">
@@ -60,16 +112,33 @@ const Analytics = () => {
             Visualize your financial trends and patterns
           </p>
         </div>
-        <Select defaultValue="monthly">
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-popover border-border">
-            <SelectItem value="weekly">Weekly</SelectItem>
-            <SelectItem value="monthly">Monthly</SelectItem>
-            <SelectItem value="yearly">Yearly</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-4">
+          <Select defaultValue="monthly">
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-border">
+              <SelectItem value="weekly">Weekly</SelectItem>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="yearly">Yearly</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="flex items-center gap-2">
+            <Input
+              className="w-56"
+              value={symbols}
+              onChange={(e) => setSymbols(e.target.value)}
+              placeholder="Symbols (comma separated)"
+            />
+            <Button onClick={handleFetchStocks} disabled={stocksLoading}>
+              {stocksLoading ? "Loading..." : "Fetch Stocks"}
+            </Button>
+            <Button onClick={handleFetchCrypto} disabled={cryptoLoading} variant="outline">
+              {cryptoLoading ? "Loading..." : "Fetch Crypto"}
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -81,7 +150,7 @@ const Analytics = () => {
               <p className="text-3xl font-bold text-foreground">₹142,847</p>
             </div>
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-primary" />
+              <IndianRupee className="w-6 h-6 text-primary" />
             </div>
           </div>
           <div className="flex items-center gap-2 text-sm text-success">
@@ -221,6 +290,32 @@ const Analytics = () => {
           )}
         </div>
       </Card>
+
+      {/* Stocks Result */}
+      <div className="mt-6">
+        <Card className="p-4 bg-card border-border">
+          <h3 className="text-lg font-medium mb-3">Stock Trends Response</h3>
+          {stocksError && <p className="text-destructive">{stocksError}</p>}
+          {!stockData && !stocksLoading && <p className="text-sm text-muted-foreground">No stock data loaded.</p>}
+          {stocksLoading && <p className="text-sm">Loading stock trends...</p>}
+          {stockData && (
+            <pre className="text-xs whitespace-pre-wrap max-h-64 overflow-auto bg-muted/10 p-3 rounded">{JSON.stringify(stockData, null, 2)}</pre>
+          )}
+        </Card>
+      </div>
+
+      {/* Crypto Result */}
+      <div className="mt-6">
+        <Card className="p-4 bg-card border-border">
+          <h3 className="text-lg font-medium mb-3">Crypto Rates Response</h3>
+          {cryptoError && <p className="text-destructive">{cryptoError}</p>}
+          {!cryptoData && !cryptoLoading && <p className="text-sm text-muted-foreground">No crypto data loaded.</p>}
+          {cryptoLoading && <p className="text-sm">Loading crypto rates...</p>}
+          {cryptoData && (
+            <pre className="text-xs whitespace-pre-wrap max-h-64 overflow-auto bg-muted/10 p-3 rounded">{JSON.stringify(cryptoData, null, 2)}</pre>
+          )}
+        </Card>
+      </div>
     </Layout>
   );
 };

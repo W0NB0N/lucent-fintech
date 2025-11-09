@@ -9,6 +9,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 import datetime
 import requests
+import tempfile
+import magic
+import re
+import json
+
 
 app = Flask(__name__)
 CORS(app)
@@ -104,6 +109,82 @@ def auth_required(f):
         return f(user_id, *args, **kwargs)
     return decorated
 
+client = genai.Client(
+    api_key="AIzaSyB-OpV4Xb1mCQcVOLZDTJdHWCm5TRNjO_w",
+)
+
+PROMPT_TEMPLATE = """
+You are a strict parser. Input will be plain text describing food/drink items optionally with prices.
+Example inputs:
+  - "Paneer Butter Masala 120\\nChicken Biryani 180\\nBeer 150\\nMango Shake 80"
+  - "1x Chicken 100, 2x Veg Thali 200"
+
+Task:
+1) For every individual item in the input extract:
+   - item: the product name exactly as on the line (trim whitespace)
+   - category: one of ["Non-Veg","Veg","Alcoholic","Non-Alcoholic"]
+     - classify drinks with alcohol content or obvious alcoholic names (beer, wine, vodka, rum) as "Alcoholic".
+     - classify drinks without alcohol (shake, juice, water, soda, tea, coffee) as "Non-Alcoholic".
+     - classify food items containing meat, fish, egg, or obvious non-veg ingredients as "Non-Veg".
+     - otherwise classify as "Veg".
+   - price: numeric price for that item (integer or float). If the line has a quantity like "2x Paneer 100" treat as quantity * unit_price (2 * 100).
+2) Return a JSON array of objects. Each object must be exactly:
+   {{ "item": "...", "category": "Non-Veg|Veg|Alcoholic|Non-Alcoholic", "price": 123.45 }}
+
+3) Output MUST be ONLY valid JSON. No extra commentary.
+
+Input:
+\"\"\"{input_text}\"\"\"
+"""
+
+def call_gemini_for_items(input_text: str) -> str:
+    prompt = PROMPT_TEMPLATE.format(input_text=input_text)
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt
+    )
+    text = getattr(response, "text", None)
+    if text is None:
+        text = str(response)
+    return text
+
+def extract_json_from_text(s: str):
+    start = s.find('[')
+    end = s.rfind(']')
+    if start == -1 or end == -1 or end <= start:
+        raise ValueError("No JSON array found in model output")
+    json_text = s[start:end+1]
+    json_text = re.sub(r',(\s*[}\]])', r'\1', json_text)  # Remove trailing commas
+    parsed = json.loads(json_text)
+    if not isinstance(parsed, list):
+        raise ValueError("Parsed JSON is not a list")
+    return parsed
+
+def aggregate_by_category(items):
+    out = {"Non-Veg": 0.0, "Veg": 0.0, "Alcoholic": 0.0, "Non-Alcoholic": 0.0}
+    for it in items:
+        cat = it.get("category", "").strip()
+        price = it.get("price", 0) or 0
+        try:
+            price_val = float(price)
+        except Exception:
+            m = re.search(r"[\d.]+", str(price))
+            price_val = float(m.group()) if m else 0.0
+        if cat not in out:
+            cat = "Veg"
+        out[cat] += price_val
+    for k,v in out.items():
+        if abs(v - int(v)) < 1e-9:
+            out[k] = int(v)
+    return out
+
+def classify_and_sum(input_text):
+    raw = call_gemini_for_items(input_text)
+    items = extract_json_from_text(raw)
+    normalized = [{"item": obj.get("item","").strip(), "category": obj.get("category","").strip(), "price": obj.get("price",0)} for obj in items]
+    agg = aggregate_by_category(normalized)
+    return agg
+
 # Routes
 
 @app.route("/signup", methods=["POST"])
@@ -153,11 +234,8 @@ def market_news():
 def ai_insights(user_id):
     data = request.get_json()
     query = data.get("query")
-    client = genai.Client(
-        api_key="AIzaSyB-OpV4Xb1mCQcVOLZDTJdHWCm5TRNjO_w",
-    )
 
-    model = "gemini-2.5-pro"
+    model = "gemini-2.5-flash"
     contents = [
         types.Content(
             role="user",
@@ -180,12 +258,12 @@ def ai_insights(user_id):
         contents=contents,
         config=generate_content_config,
     ):
-        print(chunk.text, end="")
-    response = {
-        "user_id": user_id,
-        "query": query,
-        "insight": f"Demo insight for query '{chunk.text}'"
-    }
+        # print(chunk.text, end="")
+        response = {
+            "user_id": user_id,
+            "query": query,
+            "insight": f"Demo insight for query '{chunk.text}'"
+        }
     return jsonify(response)
 
 @app.route("/user/<int:user_id>/widgets", methods=["GET"])
@@ -383,32 +461,69 @@ def split_expenses(user_id, circle_id):
         for m in members:
             splits[m] = total * (percentages.get(str(m), 0) / 100)
     elif method == "dietary":
-        # Use Gemini AI to compute split
         preferences = data.get("preferences", {})
         query_text = f"Split {total} among {members} based on dietary preferences {preferences}"
-        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        model = "gemini-2.5-pro"
-        contents = [
-            types.Content(role="user", parts=[types.Part.from_text(text=query_text)])
-        ]
-        generate_content_config = types.GenerateContentConfig(
-            thinking_config = types.ThinkingConfig(thinking_budget=-1),
-            image_config = types.ImageConfig(image_size="1K"),
-        )
+        try:
+            agg = classify_and_sum(query_text)
+            return jsonify({"message": "AI dietary split", "splits": agg})
+        except Exception as e:
+            return jsonify({"error": "AI split parsing failed", "details": str(e)}), 500
 
-        splits = {}
-        for chunk in client.models.generate_content_stream(
-            model=model, contents=contents, config=generate_content_config
-        ):
-            # Parse AI response for split amounts (mock here)
-            print(chunk.text, end="")
-            # Replace with actual parsing logic returning splits dict
-
-        return jsonify({"message": "AI split generated", "response": chunk.text})
-    else:
-        return jsonify({"error": "Invalid split method"}), 400
 
     return jsonify({"total": total, "splits": splits})
+
+
+@app.route("/bill-extract", methods=["POST"])
+@auth_required
+def extract_bill_and_classify(user_id):
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
+
+    # Save file locally to UPLOAD_FOLDER with secure filename
+    filename = file.filename
+    filepath = os.path.join("uploaded_bills", filename)
+    file.save(filepath)
+
+    try:
+        # Use python-magic to detect mime type
+        mime_detector = magic.Magic(mime=True)
+        mime_type = mime_detector.from_file(filepath)
+    except Exception as e:
+        # If mime detection fails, optionally fallback to mimetypes module
+        import mimetypes
+        mime_type, _ = mimetypes.guess_type(filepath)
+
+    # Upload file to Gemini API (no mime_type param needed)
+    uploaded_file = client.files.upload(file=filepath)
+
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=[
+            uploaded_file,
+            "\n\nPlease extract the text from this image."
+        ],
+    )
+    text = getattr(response, "text", None) or str(response)
+
+    try:
+        items_raw = call_gemini_for_items(text)
+        items = extract_json_from_text(items_raw)
+        agg = aggregate_by_category(items)
+    except Exception as e:
+        return jsonify({"error": "Failed to classify bill text", "details": str(e)}), 500
+
+    # Optionally delete the uploaded file after processing to avoid clutter
+    # os.remove(filepath)
+
+    return jsonify({
+        "extracted_text": text,
+        "parsed_items": items,
+        "summary": agg
+    })
 
 if __name__ == "__main__":
     with app.app_context():

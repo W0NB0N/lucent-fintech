@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Users, Plus, Upload, DollarSign } from "lucide-react";
+import { Users, Plus, IndianRupee } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Circle {
@@ -33,16 +33,73 @@ const Circles = () => {
   const [newExpense, setNewExpense] = useState({ merchant: "", amount: "" });
   const [loading, setLoading] = useState(false);
 
+  // ✅ Helper: Ensure auth & token
+  const ensureAuth = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      try {
+        const signupResp = await fetch("http://localhost:5001/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: "test@example.com",
+            password: "test123",
+          }),
+        });
+
+        if (!signupResp.ok && signupResp.status !== 409) {
+          throw new Error("Failed to create test account");
+        }
+
+        const loginResp = await fetch("http://localhost:5001/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: "test@example.com",
+            password: "test123",
+          }),
+        });
+
+        if (!loginResp.ok) throw new Error("Failed to log in");
+
+        const { token } = await loginResp.json();
+        localStorage.setItem("token", token);
+        return token;
+      } catch {
+        toast({
+          title: "Authentication Error",
+          description: "Failed to authenticate. Please try again.",
+          variant: "destructive",
+        });
+        return null;
+      }
+    }
+    return token;
+  };
+
+  // ✅ Fetch Circles with normalization
   const fetchCircles = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = await ensureAuth();
+      if (!token) return;
+
       const response = await fetch("http://localhost:5001/circles", {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (!response.ok) throw new Error("Failed to fetch circles");
+
       const data = await response.json();
-      setCircles(data);
-      if (data.length > 0) setSelectedCircle(data[0]);
+
+      // 💪 Normalize data so nothing breaks
+      const safeData = data.map((circle: any) => ({
+        ...circle,
+        members: circle.members || [],
+        expenses: circle.expenses || [],
+      }));
+
+      setCircles(safeData);
+      if (safeData.length > 0) setSelectedCircle(safeData[0]);
     } catch {
       toast({
         title: "Error",
@@ -53,56 +110,23 @@ const Circles = () => {
   };
 
   useEffect(() => {
-    fetchCircles();
+    const initAuth = async () => {
+      const token = await ensureAuth();
+      if (token) await fetchCircles();
+    };
+    initAuth();
   }, []);
 
+  // ✅ Create new circle
   const handleCreateCircle = async () => {
     try {
-      if (!localStorage.getItem("token")) {
-        // Create test user if not logged in
-        const signupResponse = await fetch("http://localhost:5001/signup", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: "test@example.com",
-            password: "test123"
-          }),
-        });
-        
-        if (!signupResponse.ok) {
-          const loginResponse = await fetch("http://localhost:5001/login", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              email: "test@example.com",
-              password: "test123"
-            }),
-          });
-          
-          const { token } = await loginResponse.json();
-          if (token) {
-            localStorage.setItem("token", token);
-          }
-        } else {
-          const { token } = await signupResponse.json();
-          localStorage.setItem("token", token);
-        }
+      setLoading(true);
+      const token = await ensureAuth();
+      if (!token) {
+        setLoading(false);
+        return;
       }
 
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      
-      // First get user IDs for the member emails
-      const memberEmails = newCircle.members
-        .split(",")
-        .map(email => email.trim())
-        .filter(email => email);
-
-      // Create circle with just the name first
       const response = await fetch("http://localhost:5001/circles", {
         method: "POST",
         headers: {
@@ -111,7 +135,10 @@ const Circles = () => {
         },
         body: JSON.stringify({
           name: newCircle.name,
-          member_ids: [] // Members will be added automatically by the backend
+          members: newCircle.members
+            .split(",")
+            .map((email) => email.trim())
+            .filter(Boolean),
         }),
       });
 
@@ -119,10 +146,7 @@ const Circles = () => {
 
       await fetchCircles();
       setNewCircle({ name: "", members: "" });
-      toast({
-        title: "Success",
-        description: "Circle created successfully",
-      });
+      toast({ title: "Success", description: "Circle created successfully" });
     } catch {
       toast({
         title: "Error",
@@ -134,33 +158,38 @@ const Circles = () => {
     }
   };
 
+  // ✅ Add expense
   const handleAddExpense = async () => {
     if (!selectedCircle) return;
 
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
-      const response = await fetch(`http://localhost:5001/circles/${selectedCircle.id}/expenses`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          amount: parseFloat(newExpense.amount),
-          description: newExpense.merchant,
-          date: new Date().toISOString().split('T')[0]
-        }),
-      });
+      const token = await ensureAuth();
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch(
+        `http://localhost:5001/circles/${selectedCircle.id}/expenses`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            merchant: newExpense.merchant,
+            amount: parseFloat(newExpense.amount),
+          }),
+        }
+      );
 
       if (!response.ok) throw new Error("Failed to add expense");
 
       await fetchCircles();
       setNewExpense({ merchant: "", amount: "" });
-      toast({
-        title: "Success",
-        description: "Expense added successfully",
-      });
+      toast({ title: "Success", description: "Expense added successfully" });
     } catch {
       toast({
         title: "Error",
@@ -173,7 +202,7 @@ const Circles = () => {
   };
 
   const calculateTotalSpent = (expenses: Circle["expenses"]) =>
-    expenses ? expenses.reduce((total, expense) => total + expense.amount, 0) : 0;
+    expenses ? expenses.reduce((t, e) => t + e.amount, 0) : 0;
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString("en-US", {
@@ -181,13 +210,19 @@ const Circles = () => {
       day: "numeric",
     });
 
+  // ✅ UI Rendering
   return (
     <Layout>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Lucent Circles</h1>
-          <p className="text-muted-foreground">Manage shared expenses with your groups</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Lucent Circles
+          </h1>
+          <p className="text-muted-foreground">
+            Manage shared expenses with your groups
+          </p>
         </div>
+
         <Dialog>
           <DialogTrigger asChild>
             <Button className="gap-2">
@@ -205,7 +240,9 @@ const Circles = () => {
                 <Input
                   placeholder="e.g., Roommates, Trip to Europe"
                   value={newCircle.name}
-                  onChange={(e) => setNewCircle({ ...newCircle, name: e.target.value })}
+                  onChange={(e) =>
+                    setNewCircle({ ...newCircle, name: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -213,10 +250,16 @@ const Circles = () => {
                 <Input
                   placeholder="friend@example.com, another@example.com"
                   value={newCircle.members}
-                  onChange={(e) => setNewCircle({ ...newCircle, members: e.target.value })}
+                  onChange={(e) =>
+                    setNewCircle({ ...newCircle, members: e.target.value })
+                  }
                 />
               </div>
-              <Button onClick={handleCreateCircle} disabled={loading || !newCircle.name} className="w-full">
+              <Button
+                onClick={handleCreateCircle}
+                disabled={loading || !newCircle.name}
+                className="w-full"
+              >
                 {loading ? "Creating..." : "Create Circle"}
               </Button>
             </div>
@@ -239,15 +282,19 @@ const Circles = () => {
             >
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground mb-1">{circle.name}</h3>
-                  <p className="text-sm text-muted-foreground">{circle.members.length} members</p>
+                  <h3 className="text-lg font-semibold text-foreground mb-1">
+                    {circle.name}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {circle.members?.length ?? 0} members
+                  </p>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <Users className="w-5 h-5 text-primary" />
                 </div>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <DollarSign className="w-4 h-4" />
+                <IndianRupee className="w-4 h-4" />
                 Total Spent:{" "}
                 {calculateTotalSpent(circle.expenses).toLocaleString("en-IN", {
                   style: "currency",
@@ -267,9 +314,11 @@ const Circles = () => {
                   <Users className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-foreground">{selectedCircle.name}</h2>
+                  <h2 className="text-xl font-semibold text-foreground">
+                    {selectedCircle.name}
+                  </h2>
                   <p className="text-sm text-muted-foreground">
-                    {selectedCircle.members.length} members
+                    {selectedCircle.members?.length ?? 0} members
                   </p>
                 </div>
               </div>
@@ -278,8 +327,11 @@ const Circles = () => {
               <div className="space-y-2 mb-6">
                 <h3 className="text-sm font-medium text-foreground">Members</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  {selectedCircle.members.map((member) => (
-                    <div key={member.id} className="text-sm text-muted-foreground flex items-center gap-2">
+                  {selectedCircle.members?.map((member) => (
+                    <div
+                      key={member.id}
+                      className="text-sm text-muted-foreground flex items-center gap-2"
+                    >
                       <div className="w-2 h-2 rounded-full bg-primary" />
                       {member.email}
                     </div>
@@ -292,34 +344,56 @@ const Circles = () => {
                 <Input
                   placeholder="Merchant name"
                   value={newExpense.merchant}
-                  onChange={(e) => setNewExpense({ ...newExpense, merchant: e.target.value })}
+                  onChange={(e) =>
+                    setNewExpense({ ...newExpense, merchant: e.target.value })
+                  }
                 />
                 <Input
                   type="number"
                   placeholder="Amount"
                   value={newExpense.amount}
-                  onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                  onChange={(e) =>
+                    setNewExpense({ ...newExpense, amount: e.target.value })
+                  }
                 />
-                <Button onClick={handleAddExpense} disabled={!newExpense.merchant || !newExpense.amount}>
+                <Button
+                  onClick={handleAddExpense}
+                  disabled={!newExpense.merchant || !newExpense.amount}
+                >
                   Add
                 </Button>
               </div>
 
               {/* Expenses */}
               <div className="space-y-3">
-                {selectedCircle.expenses?.map((expense) => (
-                  <div key={expense.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{expense.description}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Paid by member {expense.payer_id} • {formatDate(expense.date)}
+                {selectedCircle.expenses?.length ? (
+                  selectedCircle.expenses.map((expense) => (
+                    <div
+                      key={expense.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {expense.description}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Paid by member {expense.payer_id} •{" "}
+                          {formatDate(expense.date)}
+                        </p>
+                      </div>
+                      <p className="text-sm font-medium text-foreground">
+                        {expense.amount.toLocaleString("en-IN", {
+                          style: "currency",
+                          currency: "INR",
+                        })}
                       </p>
                     </div>
-                    <p className="text-sm font-medium text-foreground">
-                      {expense.amount.toLocaleString("en-IN", { style: "currency", currency: "INR" })}
-                    </p>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No expenses yet.
+                  </p>
+                )}
               </div>
             </Card>
           </div>

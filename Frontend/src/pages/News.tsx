@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Layout } from "@/components/Layout";
 
 interface NewsArticle {
   category: string;
@@ -34,7 +35,7 @@ export default function News() {
   if (error) return <p className="p-8 text-center text-destructive">{error}</p>;
 
   return (
-    <div className="p-8">
+    <Layout>
       <h1 className="text-3xl font-bold mb-6">Financial News & Insights</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -53,6 +54,6 @@ export default function News() {
           </Card>
         ))}
       </div>
-    </div>
+    </Layout>
   );
 }
