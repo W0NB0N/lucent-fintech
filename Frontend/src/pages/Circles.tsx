@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,43 +8,178 @@ import { Label } from "@/components/ui/label";
 import { Users, Plus, Upload, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const circles = [
-  {
-    id: 1,
-    name: "Roommates",
-    members: ["You", "Alex", "Jordan"],
-    totalSpent: 1245.50,
-    expenses: [
-      { merchant: "Rent", date: "Dec 1", amount: 900.00, paidBy: "You" },
-      { merchant: "Utilities", date: "Dec 5", amount: 145.50, paidBy: "Alex" },
-      { merchant: "Groceries", date: "Dec 10", amount: 200.00, paidBy: "Jordan" },
-    ],
-  },
-  {
-    id: 2,
-    name: "Trip to NYC",
-    members: ["You", "Sam", "Taylor", "Morgan"],
-    totalSpent: 2340.75,
-    expenses: [
-      { merchant: "Hotel", date: "Nov 15", amount: 1200.00, paidBy: "You" },
-      { merchant: "Dinner", date: "Nov 16", amount: 340.75, paidBy: "Sam" },
-      { merchant: "Museum Tickets", date: "Nov 17", amount: 800.00, paidBy: "Taylor" },
-    ],
-  },
-];
+interface Circle {
+  id: number;
+  name: string;
+  owner_id: number;
+  members: Array<{
+    id: number;
+    email: string;
+  }>;
+  expenses?: Array<{
+    id: number;
+    amount: number;
+    description: string;
+    date: string;
+    payer_id: number;
+  }>;
+}
 
 const Circles = () => {
   const { toast } = useToast();
-  const [selectedCircle, setSelectedCircle] = useState(circles[0]);
+  const [circles, setCircles] = useState<Circle[]>([]);
+  const [selectedCircle, setSelectedCircle] = useState<Circle | null>(null);
+  const [newCircle, setNewCircle] = useState({ name: "", members: "" });
   const [newExpense, setNewExpense] = useState({ merchant: "", amount: "" });
+  const [loading, setLoading] = useState(false);
 
-  const handleAddExpense = () => {
-    toast({
-      title: "Expense Added",
-      description: `${newExpense.merchant} - $${newExpense.amount} added successfully`,
-    });
-    setNewExpense({ merchant: "", amount: "" });
+  const fetchCircles = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:5001/circles", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch circles");
+      const data = await response.json();
+      setCircles(data);
+      if (data.length > 0) setSelectedCircle(data[0]);
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to load circles",
+        variant: "destructive",
+      });
+    }
   };
+
+  useEffect(() => {
+    fetchCircles();
+  }, []);
+
+  const handleCreateCircle = async () => {
+    try {
+      if (!localStorage.getItem("token")) {
+        // Create test user if not logged in
+        const signupResponse = await fetch("http://localhost:5001/signup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: "test@example.com",
+            password: "test123"
+          }),
+        });
+        
+        if (!signupResponse.ok) {
+          const loginResponse = await fetch("http://localhost:5001/login", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              email: "test@example.com",
+              password: "test123"
+            }),
+          });
+          
+          const { token } = await loginResponse.json();
+          if (token) {
+            localStorage.setItem("token", token);
+          }
+        } else {
+          const { token } = await signupResponse.json();
+          localStorage.setItem("token", token);
+        }
+      }
+
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      
+      // First get user IDs for the member emails
+      const memberEmails = newCircle.members
+        .split(",")
+        .map(email => email.trim())
+        .filter(email => email);
+
+      // Create circle with just the name first
+      const response = await fetch("http://localhost:5001/circles", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newCircle.name,
+          member_ids: [] // Members will be added automatically by the backend
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to create circle");
+
+      await fetchCircles();
+      setNewCircle({ name: "", members: "" });
+      toast({
+        title: "Success",
+        description: "Circle created successfully",
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to create circle",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddExpense = async () => {
+    if (!selectedCircle) return;
+
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const response = await fetch(`http://localhost:5001/circles/${selectedCircle.id}/expenses`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          amount: parseFloat(newExpense.amount),
+          description: newExpense.merchant,
+          date: new Date().toISOString().split('T')[0]
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to add expense");
+
+      await fetchCircles();
+      setNewExpense({ merchant: "", amount: "" });
+      toast({
+        title: "Success",
+        description: "Expense added successfully",
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to add expense",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateTotalSpent = (expenses: Circle["expenses"]) =>
+    expenses ? expenses.reduce((total, expense) => total + expense.amount, 0) : 0;
+
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
 
   return (
     <Layout>
@@ -67,27 +202,37 @@ const Circles = () => {
             <div className="space-y-4">
               <div>
                 <Label>Circle Name</Label>
-                <Input placeholder="e.g., Roommates, Trip to Europe" className="bg-input" />
+                <Input
+                  placeholder="e.g., Roommates, Trip to Europe"
+                  value={newCircle.name}
+                  onChange={(e) => setNewCircle({ ...newCircle, name: e.target.value })}
+                />
               </div>
               <div>
-                <Label>Add Members</Label>
-                <Input placeholder="Enter email addresses" className="bg-input" />
+                <Label>Members (comma-separated emails)</Label>
+                <Input
+                  placeholder="friend@example.com, another@example.com"
+                  value={newCircle.members}
+                  onChange={(e) => setNewCircle({ ...newCircle, members: e.target.value })}
+                />
               </div>
-              <Button className="w-full">Create Circle</Button>
+              <Button onClick={handleCreateCircle} disabled={loading || !newCircle.name} className="w-full">
+                {loading ? "Creating..." : "Create Circle"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Circle Cards */}
+        {/* Circles List */}
         <div className="space-y-4">
           {circles.map((circle) => (
             <Card
               key={circle.id}
               className={`p-6 cursor-pointer transition-all duration-300 ${
-                selectedCircle.id === circle.id
-                  ? "border-primary glow-violet"
+                selectedCircle?.id === circle.id
+                  ? "border-primary shadow-[0_0_25px_rgba(139,92,246,0.25)]"
                   : "border-border hover:border-primary/50"
               }`}
               onClick={() => setSelectedCircle(circle)}
@@ -101,135 +246,84 @@ const Circles = () => {
                   <Users className="w-5 h-5 text-primary" />
                 </div>
               </div>
-              <div className="flex -space-x-2 mb-4">
-                {circle.members.slice(0, 3).map((member, idx) => (
-                  <div
-                    key={idx}
-                    className="w-8 h-8 rounded-full bg-gradient-violet border-2 border-background flex items-center justify-center text-xs font-semibold"
-                  >
-                    {member[0]}
-                  </div>
-                ))}
-              </div>
-              <div className="pt-4 border-t border-border">
-                <p className="text-xs text-muted-foreground mb-1">Total Spent</p>
-                <p className="text-xl font-bold text-foreground">
-                  ${circle.totalSpent.toLocaleString()}
-                </p>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <DollarSign className="w-4 h-4" />
+                Total Spent:{" "}
+                {calculateTotalSpent(circle.expenses).toLocaleString("en-IN", {
+                  style: "currency",
+                  currency: "INR",
+                })}
               </div>
             </Card>
           ))}
         </div>
 
-        {/* Circle Detail View */}
-        <div className="lg:col-span-2">
-          <Card className="p-6 bg-card border-border">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-foreground">{selectedCircle.name}</h2>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="w-4 h-4" />
-                    Add Expense
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-popover border-border">
-                  <DialogHeader>
-                    <DialogTitle>Add Expense</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Merchant/Description</Label>
-                      <Input
-                        placeholder="e.g., Dinner, Groceries"
-                        value={newExpense.merchant}
-                        onChange={(e) =>
-                          setNewExpense({ ...newExpense, merchant: e.target.value })
-                        }
-                        className="bg-input"
-                      />
-                    </div>
-                    <div>
-                      <Label>Amount</Label>
-                      <Input
-                        type="number"
-                        placeholder="0.00"
-                        value={newExpense.amount}
-                        onChange={(e) =>
-                          setNewExpense({ ...newExpense, amount: e.target.value })
-                        }
-                        className="bg-input"
-                      />
-                    </div>
-                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors">
-                      <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        Upload receipt (optional)
-                      </p>
-                    </div>
-                    <div>
-                      <Label>Split Method</Label>
-                      <div className="grid grid-cols-3 gap-2 mt-2">
-                        <Button variant="outline" size="sm">Equal</Button>
-                        <Button variant="outline" size="sm">Custom</Button>
-                        <Button variant="outline" size="sm" className="gap-1">
-                          AI Split
-                        </Button>
-                      </div>
-                    </div>
-                    <Button className="w-full" onClick={handleAddExpense}>
-                      Add Expense
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-muted-foreground">Fairness Ring</span>
-                <span className="text-sm text-success">Balanced</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-violet transition-all duration-500"
-                  style={{ width: "85%" }}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Recent Expenses</h3>
-              {selectedCircle.expenses.map((expense, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <DollarSign className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{expense.merchant}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {expense.date} • Paid by {expense.paidBy}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-sm font-semibold text-foreground">
-                    ${expense.amount.toFixed(2)}
-                  </span>
+        {/* Selected Circle Details */}
+        {selectedCircle && (
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="p-6 bg-card border-border">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Users className="w-6 h-6 text-primary" />
                 </div>
-              ))}
-            </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">{selectedCircle.name}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedCircle.members.length} members
+                  </p>
+                </div>
+              </div>
 
-            <div className="mt-6 pt-6 border-t border-border">
-              <Button className="w-full" variant="outline">
-                Settle Up
-              </Button>
-            </div>
-          </Card>
-        </div>
+              {/* Members */}
+              <div className="space-y-2 mb-6">
+                <h3 className="text-sm font-medium text-foreground">Members</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedCircle.members.map((member) => (
+                    <div key={member.id} className="text-sm text-muted-foreground flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-primary" />
+                      {member.email}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Add Expense */}
+              <div className="flex gap-2 mb-4">
+                <Input
+                  placeholder="Merchant name"
+                  value={newExpense.merchant}
+                  onChange={(e) => setNewExpense({ ...newExpense, merchant: e.target.value })}
+                />
+                <Input
+                  type="number"
+                  placeholder="Amount"
+                  value={newExpense.amount}
+                  onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                />
+                <Button onClick={handleAddExpense} disabled={!newExpense.merchant || !newExpense.amount}>
+                  Add
+                </Button>
+              </div>
+
+              {/* Expenses */}
+              <div className="space-y-3">
+                {selectedCircle.expenses?.map((expense) => (
+                  <div key={expense.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{expense.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Paid by member {expense.payer_id} • {formatDate(expense.date)}
+                      </p>
+                    </div>
+                    <p className="text-sm font-medium text-foreground">
+                      {expense.amount.toLocaleString("en-IN", { style: "currency", currency: "INR" })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
     </Layout>
   );

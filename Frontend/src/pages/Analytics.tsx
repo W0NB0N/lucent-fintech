@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Card } from "@/components/ui/card";
 import {
@@ -8,14 +9,56 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TrendingUp, DollarSign, PiggyBank, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const Analytics = () => {
+  const [query, setQuery] = useState("");
+  const [insight, setInsight] = useState<string | null>(null);
+  const [recommendation, setRecommendation] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFetchInsight = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No user token found — please log in first.");
+
+      const response = await fetch("http://localhost:5001/ai-insights", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch AI insights");
+
+      const data = await response.json();
+      setInsight(data.insight || "No insight available right now.");
+      setRecommendation(
+        "This is an AI-generated suggestion based on your spending pattern."
+      );
+      setQuery("");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Analytics</h1>
-          <p className="text-muted-foreground">Visualize your financial trends and patterns</p>
+          <p className="text-muted-foreground">
+            Visualize your financial trends and patterns
+          </p>
         </div>
         <Select defaultValue="monthly">
           <SelectTrigger className="w-40">
@@ -29,12 +72,13 @@ const Analytics = () => {
         </Select>
       </div>
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <Card className="p-6 bg-card border-border hover:border-primary/50 transition-all duration-300 hover:glow-violet">
           <div className="flex items-start justify-between mb-4">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Net Worth</p>
-              <p className="text-3xl font-bold text-foreground">$142,847</p>
+              <p className="text-3xl font-bold text-foreground">₹142,847</p>
             </div>
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
               <DollarSign className="w-6 h-6 text-primary" />
@@ -50,7 +94,7 @@ const Analytics = () => {
           <div className="flex items-start justify-between mb-4">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Monthly Expenses</p>
-              <p className="text-3xl font-bold text-foreground">$4,280</p>
+              <p className="text-3xl font-bold text-foreground">₹4,280</p>
             </div>
             <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
               <TrendingUp className="w-6 h-6 text-destructive rotate-180" />
@@ -79,9 +123,12 @@ const Analytics = () => {
         </Card>
       </div>
 
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card className="p-6 bg-card border-border">
-          <h3 className="text-lg font-semibold text-foreground mb-6">Income vs Expenses</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-6">
+            Income vs Expenses
+          </h3>
           <div className="h-64 flex items-end justify-around gap-4">
             {[65, 72, 58, 80, 75, 85].map((height, idx) => (
               <div key={idx} className="flex-1 flex flex-col items-center gap-2">
@@ -104,7 +151,9 @@ const Analytics = () => {
         </Card>
 
         <Card className="p-6 bg-card border-border">
-          <h3 className="text-lg font-semibold text-foreground mb-6">Expense Categories</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-6">
+            Expense Categories
+          </h3>
           <div className="space-y-4">
             {[
               { name: "Housing", value: 42, color: "bg-primary" },
@@ -130,25 +179,46 @@ const Analytics = () => {
         </Card>
       </div>
 
+      {/* ✅ Dynamic AI Insights */}
       <Card className="p-6 bg-card border-border hover:glow-violet transition-all duration-300">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-5 h-5 text-primary" />
-          <h3 className="text-lg font-semibold text-foreground">AI Financial Summary</h3>
+          <h3 className="text-lg font-semibold text-foreground">
+            AI Financial Summary
+          </h3>
         </div>
+
         <div className="space-y-4">
-          <p className="text-foreground">
-            Your financial health is strong this month. You've successfully saved 28% of your
-            income, exceeding your target by 3%. Your spending patterns show increased
-            transportation costs, likely due to recent fuel price increases.
-          </p>
-          <div className="bg-primary/10 border border-primary/20 p-4 rounded-lg">
-            <p className="text-sm text-muted-foreground mb-2">💡 Key Recommendation</p>
-            <p className="text-foreground">
-              Consider reviewing your subscription services. Our analysis shows $45/month in
-              potentially unused subscriptions that could boost your savings by an additional
-              $540 annually.
-            </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Ask AI about your finances..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="flex-1"
+            />
+            <Button onClick={handleFetchInsight} disabled={loading || !query}>
+              {loading ? "Thinking..." : "Ask"}
+            </Button>
           </div>
+
+          {error && <p className="text-destructive text-sm">{error}</p>}
+
+          {insight ? (
+            <>
+              <p className="text-foreground">{insight}</p>
+              <div className="bg-primary/10 border border-primary/20 p-4 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">
+                  💡 Key Recommendation
+                </p>
+                <p className="text-foreground">{recommendation}</p>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No AI summary yet — try asking something like{" "}
+              <i>"How can I improve my spending this month?"</i>
+            </p>
+          )}
         </div>
       </Card>
     </Layout>

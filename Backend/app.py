@@ -432,4 +432,4 @@ if __name__ == "__main__":
             if not Widget.query.filter_by(name=name).first():
                 db.session.add(Widget(name=name))
         db.session.commit()
-    app.run(debug=True)
+    app.run(debug=True, port=5001)

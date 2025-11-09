@@ -7,6 +7,7 @@ export type WidgetKeys =
   | "monthlyBudget"
   | "savingsGoals"
   | "aiInsights"
+  | "fireNumber"
   | "income"
   | "expenditure"
   | "investments"
@@ -24,6 +25,7 @@ const DEFAULT_STATE: WidgetsState = {
   monthlyBudget: true,
   savingsGoals: true,
   aiInsights: true,
+  fireNumber: true,
   income: false,
   expenditure: false,
   investments: false,
@@ -46,7 +48,11 @@ export const WidgetProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [widgets, setWidgetsState] = useState<WidgetsState>(() => {
     try {
       const raw = localStorage.getItem("lucent_widgets");
-      if (raw) return JSON.parse(raw) as WidgetsState;
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<WidgetsState>;
+        // merge with defaults so newly added keys (like fireNumber) show up for existing users
+        return { ...DEFAULT_STATE, ...parsed } as WidgetsState;
+      }
     } catch (e) {
       /* ignore */
     }

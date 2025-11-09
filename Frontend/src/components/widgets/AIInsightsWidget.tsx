@@ -1,49 +1,90 @@
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { Card } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 
-const insights = [
-  {
-    title: "Travel spending increased",
-    description: "Your travel expenses rose 12% this week compared to last month's average.",
-    recommendation: "Consider setting a travel budget to keep expenses in check.",
-    impact: "medium",
-  },
-  {
-    title: "Great savings progress",
-    description: "You're on track to reach your Emergency Fund goal 2 months early!",
-    recommendation: "Keep up the consistent monthly contributions.",
-    impact: "positive",
-  },
-  {
-    title: "Subscription check",
-    description: "You have 3 unused subscriptions totaling $45/month.",
-    recommendation: "Review and cancel unused subscriptions to save $540 annually.",
-    impact: "high",
-  },
-];
-
 export const AIInsightsWidget = () => {
-  const [isHovered, setIsHovered] = useState(false);
-  const [selectedInsight, setSelectedInsight] = useState(insights[0]);
+  const [query, setQuery] = useState("");
+  const [insights, setInsights] = useState<any[]>([]);
+  const [selectedInsight, setSelectedInsight] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGenerateInsight = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem("token"); // JWT token from login/signup
+      if (!token) throw new Error("User not authenticated");
+
+      const response = await fetch("http://localhost:5001/ai-insights", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch insight");
+
+      const data = await response.json();
+
+      // Convert backend response to your UI format
+      const newInsight = {
+        title: `Insight for: ${query}`,
+        description: data.insight,
+        recommendation: "Use this insight to adjust your financial goals.",
+        impact: "positive",
+      };
+
+      setInsights([newInsight, ...insights]);
+      setQuery("");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <Card
-      className={`p-6 bg-card border-border hover:border-primary/50 transition-all duration-300 ${
-        isHovered ? "glow-violet animate-glow-pulse" : ""
-      }`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <Card className="p-6 bg-card border-border hover:border-primary/50 transition-all duration-300 relative z-0">
       <div className="flex items-center gap-2 mb-4">
         <Sparkles className="w-5 h-5 text-primary" />
         <h3 className="text-sm font-medium text-foreground">AI Insights</h3>
       </div>
 
       <div className="space-y-3">
-        {insights.map((insight) => (
-          <Dialog key={insight.title}>
+        {/* Input to ask AI */}
+        <div className="flex gap-2">
+          <Input
+            placeholder="Ask AI about your finances..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="flex-1"
+          />
+          <Button onClick={handleGenerateInsight} disabled={loading || !query}>
+            {loading ? "Thinking..." : "Ask"}
+          </Button>
+        </div>
+
+        {/* Error message */}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        {/* Empty state */}
+        {insights.length === 0 && (
+          <p className="text-sm text-muted-foreground mt-2">
+            No insights yet — try asking something like:
+            <br /> <i>“How can I optimize my investments this month?”</i>
+          </p>
+        )}
+
+        {/* Generated insights */}
+        {insights.map((insight, index) => (
+          <Dialog key={index}>
             <DialogTrigger asChild>
               <div
                 className="p-3 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer transition-all border border-transparent hover:border-primary/30"
@@ -61,7 +102,9 @@ export const AIInsightsWidget = () => {
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground mb-1">{insight.title}</p>
-                    <p className="text-xs text-muted-foreground">{insight.description}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {insight.description}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -70,30 +113,30 @@ export const AIInsightsWidget = () => {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-primary" />
-                  {selectedInsight.title}
+                  {selectedInsight?.title}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Analysis</p>
-                  <p className="text-foreground">{selectedInsight.description}</p>
+                  <p className="text-foreground">{selectedInsight?.description}</p>
                 </div>
                 <div className="bg-primary/10 border border-primary/20 p-4 rounded-lg">
                   <p className="text-sm text-muted-foreground mb-2">💡 Recommendation</p>
-                  <p className="text-foreground">{selectedInsight.recommendation}</p>
+                  <p className="text-foreground">{selectedInsight?.recommendation}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Impact:</span>
                   <span
                     className={`text-xs font-medium px-2 py-1 rounded-full ${
-                      selectedInsight.impact === "positive"
+                      selectedInsight?.impact === "positive"
                         ? "bg-success/20 text-success"
-                        : selectedInsight.impact === "high"
+                        : selectedInsight?.impact === "high"
                         ? "bg-destructive/20 text-destructive"
                         : "bg-primary/20 text-primary"
                     }`}
                   >
-                    {selectedInsight.impact}
+                    {selectedInsight?.impact}
                   </span>
                 </div>
               </div>
